@@ -137,10 +137,11 @@ class ChannelTalkPage extends StatefulWidget {
 
 class _ChannelTalkPageState extends State<ChannelTalkPage> {
   Talk? currentTalk;
+  List<WatchNextTalk> watchNextTalks = [];
   Timer? timer;
   bool isLoading = true;
   String? errorMessage;
-  int _selectedIndex = 0; // For BottomNavigationBar
+  int _selectedIndex = 0;
 
   @override
   void initState() {
@@ -155,9 +156,7 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
     final regex = RegExp(r'Streaming at (\d{2}):(\d{2}) on (\d{2})/(\d{2})');
     final match = regex.firstMatch(schedule);
 
-    if (match == null) {
-      throw FormatException("Formato orario non valido: $schedule");
-    }
+    if (match == null) throw FormatException("Formato orario non valido: $schedule");
 
     final hour = int.parse(match.group(1)!);
     final minute = int.parse(match.group(2)!);
@@ -171,7 +170,6 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
   Future<void> _fetchTalk() async {
     try {
       final talks = await get_Talks_By_Channel(widget.channel, 100);
-
       if (talks.isEmpty) {
         setState(() {
           currentTalk = null;
@@ -185,14 +183,10 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
       Talk? current;
 
       for (int i = 0; i < talks.length; i++) {
-        final talkStart = _parseSchedule(talks[i].schedule_time);
-
-        final talkEnd =
-            (i + 1 < talks.length)
-                ? _parseSchedule(talks[i + 1].schedule_time)
-                : talkStart.add(const Duration(hours: 1)); // se ultimo, supponi 1h
-
-        if (now.isAfter(talkStart) && now.isBefore(talkEnd)) {
+        final start = _parseSchedule(talks[i].schedule_time);
+        final end =
+            (i + 1 < talks.length) ? _parseSchedule(talks[i + 1].schedule_time) : start.add(const Duration(hours: 1));
+        if (now.isAfter(start) && now.isBefore(end)) {
           current = talks[i];
           break;
         }
@@ -200,6 +194,7 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
 
       setState(() {
         currentTalk = current;
+        watchNextTalks.clear(); // reset suggerimenti
         isLoading = false;
         errorMessage = current == null ? "Nessun talk in onda al momento." : null;
       });
@@ -207,6 +202,19 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
       setState(() {
         currentTalk = null;
         isLoading = false;
+        errorMessage = "Errore nel caricamento: ${e.toString()}";
+      });
+    }
+  }
+
+  Future<void> _fetchWatchNext() async {
+    try {
+      final watch = await get_WatchNext_By_ID(currentTalk!.id);
+      setState(() {
+        watchNextTalks = watch.cast<WatchNextTalk>();
+      });
+    } catch (e) {
+      setState(() {
         errorMessage = "Errore nel caricamento: ${e.toString()}";
       });
     }
@@ -222,10 +230,7 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
     setState(() {
       _selectedIndex = index;
     });
-    if (index == 0) {
-      // Navigate to home (list of channels)
-      Navigator.of(context).popUntil((route) => route.isFirst);
-    }
+    if (index == 0) Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   @override
@@ -265,23 +270,25 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
                     ),
                     const SizedBox(height: 16),
                     if (currentTalk != null)
-                      // Wrap the content that might overflow in an Expanded widget
                       Expanded(
                         child: SingleChildScrollView(
-                          // Add SingleChildScrollView to make the content scrollable if needed
                           child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               TalkCard(talk: currentTalk!),
-                              const SizedBox(height: 24),
-                              Container(
-                                alignment: Alignment.centerLeft,
-                                padding: const EdgeInsets.symmetric(vertical: 8),
-                                child: const Text(
-                                  "Chat: commenta insieme alla community",
-                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                                ),
+                              const SizedBox(height: 12),
+                              ElevatedButton.icon(
+                                onPressed: () => _fetchWatchNext(),
+                                icon: const Icon(Icons.playlist_play),
+                                label: const Text("Guarda anche"),
                               ),
-
+                              const SizedBox(height: 12),
+                              if (watchNextTalks.isNotEmpty) WatchNextTalkList(watchNextTalks: watchNextTalks),
+                              const SizedBox(height: 24),
+                              const Text(
+                                "Chat: commenta insieme alla community",
+                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              ),
                               Container(
                                 height: 200,
                                 width: 600,
@@ -291,13 +298,7 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
                                 ),
                                 padding: const EdgeInsets.all(15),
                                 child: const SingleChildScrollView(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      // Placeholder per messaggi
-                                      Text("⚠️ La chat non è ancora attiva.", style: TextStyle(color: Colors.grey)),
-                                    ],
-                                  ),
+                                  child: Text("⚠️ La chat non è ancora attiva.", style: TextStyle(color: Colors.grey)),
                                 ),
                               ),
                               const SizedBox(height: 12),
@@ -311,7 +312,7 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
                                   border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
                                   contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                                 ),
-                                enabled: false, // Disabilitato perché è solo placeholder
+                                enabled: false,
                               ),
                             ],
                           ),
@@ -323,7 +324,7 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
                 ),
       ),
       bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
+        items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.notifications), label: 'Notifiche'),
           BottomNavigationBarItem(icon: Icon(Icons.account_circle), label: 'Account'),
@@ -338,27 +339,85 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
 
 class TalkCard extends StatelessWidget {
   final Talk talk;
+  final VoidCallback? onTap;
 
-  const TalkCard({super.key, required this.talk});
+  const TalkCard({Key? key, required this.talk, this.onTap}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      elevation: 4,
+      elevation: 3,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(talk.title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text("Speaker: ${talk.speakers}", style: const TextStyle(fontSize: 16)),
-            const SizedBox(height: 8),
-            Text(talk.description, style: const TextStyle(fontSize: 15, color: Colors.black87)),
-            const SizedBox(height: 8),
-            Text("📅 ${talk.schedule_time}", style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-          ],
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(talk.title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text(talk.description, style: const TextStyle(fontSize: 16)),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.schedule, size: 16, color: Colors.grey),
+                  const SizedBox(width: 4),
+                  Text(talk.schedule_time, style: const TextStyle(color: Colors.grey)),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class WatchNextTalkList extends StatelessWidget {
+  final List<WatchNextTalk> watchNextTalks;
+
+  const WatchNextTalkList({Key? key, required this.watchNextTalks}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("Consigliati:", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        ...watchNextTalks.map((watch) => WatchNextTalkCard(talk: watch)).toList(),
+      ],
+    );
+  }
+}
+
+class WatchNextTalkCard extends StatelessWidget {
+  final WatchNextTalk talk;
+
+  const WatchNextTalkCard({Key? key, required this.talk}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: InkWell(
+        onTap: () {
+          // puoi definire l’azione al tap se vuoi, es. aprire URL
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(talk.title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text(talk.url, style: const TextStyle(fontSize: 16, color: Colors.blue)),
+            ],
+          ),
         ),
       ),
     );

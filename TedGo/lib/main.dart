@@ -65,8 +65,11 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('TED GO', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.blue,
+        title: const Text(
+          'TED GO',
+          style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Color.fromARGB(255, 255, 0, 0)),
+        ),
+        backgroundColor: const Color.fromARGB(255, 0, 0, 0),
         elevation: 0,
       ),
       body: ListView.builder(
@@ -102,9 +105,16 @@ class _MyHomePageState extends State<MyHomePage> {
                   ],
                 ),
                 padding: const EdgeInsets.symmetric(vertical: 75, horizontal: 16),
-                child: Text(
-                  displayName,
-                  style: const TextStyle(fontSize: 25, fontWeight: FontWeight.bold, color: Colors.white),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.play_circle_fill, color: Colors.white, size: 30),
+                    const SizedBox(width: 10),
+                    Text(
+                      displayName,
+                      style: const TextStyle(fontSize: 25, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -125,6 +135,8 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 }
 
+// Assumo che Talk e WatchNextTalk siano definiti altrove
+
 class ChannelTalkPage extends StatefulWidget {
   final String channel;
   final String displayName;
@@ -137,7 +149,6 @@ class ChannelTalkPage extends StatefulWidget {
 
 class _ChannelTalkPageState extends State<ChannelTalkPage> {
   Talk? currentTalk;
-  List<WatchNextTalk> watchNextTalks = [];
   Timer? timer;
   bool isLoading = true;
   String? errorMessage;
@@ -194,7 +205,6 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
 
       setState(() {
         currentTalk = current;
-        watchNextTalks.clear(); // reset suggerimenti
         isLoading = false;
         errorMessage = current == null ? "Nessun talk in onda al momento." : null;
       });
@@ -202,19 +212,6 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
       setState(() {
         currentTalk = null;
         isLoading = false;
-        errorMessage = "Errore nel caricamento: ${e.toString()}";
-      });
-    }
-  }
-
-  Future<void> _fetchWatchNext() async {
-    try {
-      final watch = await get_WatchNext_By_ID(currentTalk!.id);
-      setState(() {
-        watchNextTalks = watch.cast<WatchNextTalk>();
-      });
-    } catch (e) {
-      setState(() {
         errorMessage = "Errore nel caricamento: ${e.toString()}";
       });
     }
@@ -237,8 +234,11 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.displayName, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.blue,
+        title: Text(
+          widget.displayName,
+          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color.fromARGB(255, 255, 0, 0)),
+        ),
+        backgroundColor: const Color.fromARGB(255, 0, 0, 0),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -260,7 +260,7 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
                       icon: const Icon(Icons.event_note),
                       label: const Text("Vedi programmazione"),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
+                        backgroundColor: const Color.fromARGB(255, 147, 94, 94),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -278,12 +278,37 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
                               TalkCard(talk: currentTalk!),
                               const SizedBox(height: 12),
                               ElevatedButton.icon(
-                                onPressed: () => _fetchWatchNext(),
+                                onPressed: () async {
+                                  setState(() {
+                                    isLoading = true;
+                                    errorMessage = null;
+                                  });
+                                  try {
+                                    final watch = await get_WatchNext_By_ID(currentTalk!.id);
+                                    if (!mounted) return;
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder:
+                                            (_) => WatchNextPage(
+                                              watchNextTalks: watch.cast<WatchNextTalk>(),
+                                              channel: widget.channel,
+                                              displayName: widget.displayName,
+                                            ),
+                                      ),
+                                    );
+                                  } catch (e) {
+                                    setState(() {
+                                      errorMessage = "Errore nel caricamento: ${e.toString()}";
+                                    });
+                                  } finally {
+                                    setState(() {
+                                      isLoading = false;
+                                    });
+                                  }
+                                },
                                 icon: const Icon(Icons.playlist_play),
                                 label: const Text("Guarda anche"),
                               ),
-                              const SizedBox(height: 12),
-                              if (watchNextTalks.isNotEmpty) WatchNextTalkList(watchNextTalks: watchNextTalks),
                               const SizedBox(height: 24),
                               const Text(
                                 "Chat: commenta insieme alla community",
@@ -293,7 +318,7 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
                                 height: 200,
                                 width: 600,
                                 decoration: BoxDecoration(
-                                  color: Colors.grey[200],
+                                  color: const Color.fromARGB(255, 223, 185, 185),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 padding: const EdgeInsets.all(15),
@@ -321,6 +346,58 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
                     else
                       const Text("Nessun talk in onda al momento."),
                   ],
+                ),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.notifications), label: 'Notifiche'),
+          BottomNavigationBarItem(icon: Icon(Icons.account_circle), label: 'Account'),
+        ],
+        currentIndex: _selectedIndex,
+        selectedItemColor: const Color.fromARGB(255, 212, 2, 2),
+        onTap: _onItemTapped,
+      ),
+    );
+  }
+}
+
+class WatchNextPage extends StatefulWidget {
+  final List<WatchNextTalk> watchNextTalks;
+  final String channel;
+  final String displayName;
+
+  const WatchNextPage({Key? key, required this.watchNextTalks, required this.channel, required this.displayName})
+    : super(key: key);
+
+  @override
+  State<WatchNextPage> createState() => _WatchNextPageState();
+}
+
+class _WatchNextPageState extends State<WatchNextPage> {
+  int _selectedIndex = 1; // Se vuoi default Notifiche, oppure cambia a 0 per Home ecc
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+    if (index == 0) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    }
+    // Puoi aggiungere navigazione per altre tab se vuoi
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text("Consigliati - ${widget.displayName}"), backgroundColor: Colors.blue),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child:
+            widget.watchNextTalks.isEmpty
+                ? const Center(child: Text("Nessun talk consigliato."))
+                : SingleChildScrollView(
+                  child: Column(children: [WatchNextTalkList(watchNextTalks: widget.watchNextTalks)]),
                 ),
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -405,7 +482,7 @@ class WatchNextTalkCard extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
         onTap: () {
-          // puoi definire l’azione al tap se vuoi, es. aprire URL
+          // Azione da definire, es. aprire URL talk.url
         },
         borderRadius: BorderRadius.circular(16),
         child: Padding(

@@ -65,12 +65,16 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'TED GO',
-          style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Color.fromARGB(255, 255, 0, 0)),
+          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color.fromARGB(255, 255, 0, 0)),
         ),
-        backgroundColor: const Color.fromARGB(255, 0, 0, 0),
-        elevation: 0,
+        iconTheme: const IconThemeData(
+          color: Color.fromARGB(255, 255, 255, 255), // Colore della freccia "indietro"
+        ),
+        backgroundColor: Colors.black,
+        elevation: 6,
+        shadowColor: Colors.redAccent,
       ),
       body: ListView.builder(
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
@@ -122,14 +126,18 @@ class _MyHomePageState extends State<MyHomePage> {
         },
       ),
       bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
+        items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.notifications), label: 'Notifiche'),
           BottomNavigationBarItem(icon: Icon(Icons.account_circle), label: 'Account'),
         ],
         currentIndex: _selectedIndex,
-        selectedItemColor: Colors.blue,
+        selectedItemColor: const Color.fromARGB(255, 255, 0, 0),
+        unselectedItemColor: Colors.grey,
+        backgroundColor: Colors.black,
         onTap: _onItemTapped,
+        selectedFontSize: 14,
+        unselectedFontSize: 12,
       ),
     );
   }
@@ -238,7 +246,12 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
           widget.displayName,
           style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color.fromARGB(255, 255, 0, 0)),
         ),
-        backgroundColor: const Color.fromARGB(255, 0, 0, 0),
+        iconTheme: const IconThemeData(
+          color: Color.fromARGB(255, 255, 255, 255), // Colore della freccia "indietro"
+        ),
+        backgroundColor: Colors.black,
+        elevation: 6,
+        shadowColor: Colors.redAccent,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -355,8 +368,12 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
           BottomNavigationBarItem(icon: Icon(Icons.account_circle), label: 'Account'),
         ],
         currentIndex: _selectedIndex,
-        selectedItemColor: const Color.fromARGB(255, 212, 2, 2),
+        selectedItemColor: const Color.fromARGB(255, 255, 0, 0),
+        unselectedItemColor: Colors.grey,
+        backgroundColor: Colors.black,
         onTap: _onItemTapped,
+        selectedFontSize: 14,
+        unselectedFontSize: 12,
       ),
     );
   }
@@ -390,14 +407,58 @@ class _WatchNextPageState extends State<WatchNextPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Consigliati - ${widget.displayName}"), backgroundColor: Colors.blue),
+      appBar: AppBar(
+        title: const Text(
+          'Consigliati',
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color.fromARGB(255, 255, 0, 0)),
+        ),
+        iconTheme: const IconThemeData(
+          color: Colors.white, // Freccia indietro
+        ),
+        backgroundColor: Colors.black,
+        elevation: 6,
+        shadowColor: Colors.redAccent,
+      ),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16.0),
         child:
             widget.watchNextTalks.isEmpty
-                ? const Center(child: Text("Nessun talk consigliato."))
-                : SingleChildScrollView(
-                  child: Column(children: [WatchNextTalkList(watchNextTalks: widget.watchNextTalks)]),
+                ? const Center(
+                  child: Text(
+                    "Nessun talk consigliato.",
+                    style: TextStyle(fontSize: 18, color: Colors.grey, fontStyle: FontStyle.italic),
+                  ),
+                )
+                : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Guarda anche",
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Color.fromARGB(255, 212, 2, 2),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color.fromARGB(255, 245, 245, 245),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
+                        ),
+                        padding: const EdgeInsets.all(12),
+                        child: SingleChildScrollView(child: WatchNextTalkList(watchNextTalks: widget.watchNextTalks)),
+                      ),
+                    ),
+                  ],
                 ),
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -407,8 +468,12 @@ class _WatchNextPageState extends State<WatchNextPage> {
           BottomNavigationBarItem(icon: Icon(Icons.account_circle), label: 'Account'),
         ],
         currentIndex: _selectedIndex,
-        selectedItemColor: Colors.blue,
+        selectedItemColor: const Color.fromARGB(255, 255, 0, 0),
+        unselectedItemColor: Colors.grey,
+        backgroundColor: Colors.black,
         onTap: _onItemTapped,
+        selectedFontSize: 14,
+        unselectedFontSize: 12,
       ),
     );
   }
@@ -544,7 +609,18 @@ class _AllTalksPageState extends State<AllTalksPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Programmazione: ${widget.displayName}"), backgroundColor: Colors.blue),
+      appBar: AppBar(
+        title: const Text(
+          'Programmazione',
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color.fromARGB(255, 255, 0, 0)),
+        ),
+        iconTheme: const IconThemeData(
+          color: Colors.white, // Freccia indietro
+        ),
+        backgroundColor: Colors.black,
+        elevation: 6,
+        shadowColor: Colors.redAccent,
+      ),
       body: FutureBuilder<List<Talk>>(
         future: get_Talks_By_Channel(widget.channel, 100),
         builder: (context, snapshot) {
@@ -631,14 +707,18 @@ class _AllTalksPageState extends State<AllTalksPage> {
         },
       ),
       bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
+        items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.notifications), label: 'Notifiche'),
           BottomNavigationBarItem(icon: Icon(Icons.account_circle), label: 'Account'),
         ],
         currentIndex: _selectedIndex,
-        selectedItemColor: Colors.blue,
+        selectedItemColor: const Color.fromARGB(255, 255, 0, 0),
+        unselectedItemColor: Colors.grey,
+        backgroundColor: Colors.black,
         onTap: _onItemTapped,
+        selectedFontSize: 14,
+        unselectedFontSize: 12,
       ),
     );
   }

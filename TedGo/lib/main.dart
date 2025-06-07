@@ -76,54 +76,63 @@ class _MyHomePageState extends State<MyHomePage> {
         elevation: 6,
         shadowColor: Colors.redAccent,
       ),
-      body: ListView.builder(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-        itemCount: MyHomePage.channelNames.length,
-        itemBuilder: (context, index) {
-          final channelKey = MyHomePage.channelNames.keys.elementAt(index);
-          final displayName = MyHomePage.channelNames[channelKey]!;
-          final backgroundImage = MyHomePage.channelImages[channelKey] ?? 'assets/images/default.jpg';
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
-            child: GestureDetector(
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => ChannelTalkPage(channel: channelKey, displayName: displayName)),
-                );
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
-                decoration: BoxDecoration(
-                  image: DecorationImage(
-                    image: AssetImage(backgroundImage),
-                    fit: BoxFit.cover,
-                    colorFilter: ColorFilter.mode(
-                      Colors.black.withOpacity(0.3), // sfuma l’immagine per rendere leggibile il testo
-                      BlendMode.darken,
+      body: Container(
+        color: const Color.fromARGB(255, 18, 18, 18),
+        child: ListView.builder(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+          itemCount: MyHomePage.channelNames.length,
+          itemBuilder: (context, index) {
+            final channelKey = MyHomePage.channelNames.keys.elementAt(index);
+            final displayName = MyHomePage.channelNames[channelKey]!;
+            final backgroundImage = MyHomePage.channelImages[channelKey] ?? 'assets/images/default.jpg';
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              child: GestureDetector(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => ChannelTalkPage(channel: channelKey, displayName: displayName)),
+                  );
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  decoration: BoxDecoration(
+                    image: DecorationImage(
+                      image: AssetImage(backgroundImage),
+                      fit: BoxFit.cover,
+                      colorFilter: ColorFilter.mode(
+                        Colors.black.withOpacity(0.3), // sfuma l’immagine per rendere leggibile il testo
+                        BlendMode.darken,
+                      ),
                     ),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(width: 1),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.red.withOpacity(0.3), // alone più sfumato
+                        blurRadius: 2,
+                        spreadRadius: 2,
+                        offset: Offset(0, 0),
+                      ),
+                    ],
                   ),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(2, 4)),
-                  ],
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 75, horizontal: 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.play_circle_fill, color: Colors.white, size: 30),
-                    const SizedBox(width: 10),
-                    Text(
-                      displayName,
-                      style: const TextStyle(fontSize: 25, fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
-                  ],
+                  padding: const EdgeInsets.symmetric(vertical: 75, horizontal: 16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.play_circle_fill, color: Colors.white, size: 30),
+                      const SizedBox(width: 10),
+                      Text(
+                        displayName,
+                        style: const TextStyle(fontSize: 25, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
       bottomNavigationBar: BottomNavigationBar(
         items: const [
@@ -253,7 +262,8 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
         elevation: 6,
         shadowColor: Colors.redAccent,
       ),
-      body: Padding(
+      body: Container(
+        color: const Color.fromARGB(255, 18, 18, 18),
         padding: const EdgeInsets.all(16),
         child:
             isLoading
@@ -262,25 +272,6 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
                 ? Center(child: Text('Errore: $errorMessage'))
                 : Column(
                   children: [
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => AllTalksPage(channel: widget.channel, displayName: widget.displayName),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.event_note),
-                      label: const Text("Vedi programmazione"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color.fromARGB(255, 147, 94, 94),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        elevation: 4,
-                        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                    ),
                     const SizedBox(height: 16),
                     if (currentTalk != null)
                       Expanded(
@@ -289,66 +280,115 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               TalkCard(talk: currentTalk!),
-                              const SizedBox(height: 12),
-                              ElevatedButton.icon(
-                                onPressed: () async {
-                                  setState(() {
-                                    isLoading = true;
-                                    errorMessage = null;
-                                  });
-                                  try {
-                                    final watch = await get_WatchNext_By_ID(currentTalk!.id);
-                                    if (!mounted) return;
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder:
-                                            (_) => WatchNextPage(
-                                              watchNextTalks: watch.cast<WatchNextTalk>(),
-                                              channel: widget.channel,
-                                              displayName: widget.displayName,
-                                            ),
+                              const SizedBox(height: 16),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      onPressed: () {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder:
+                                                (_) => AllTalksPage(
+                                                  channel: widget.channel,
+                                                  displayName: widget.displayName,
+                                                ),
+                                          ),
+                                        );
+                                      },
+                                      icon: const Icon(Icons.event_note),
+                                      label: const Text("Vedi programmazione"),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color.fromARGB(255, 0, 0, 0),
+                                        foregroundColor: const Color.fromARGB(255, 255, 0, 0),
+                                        padding: const EdgeInsets.symmetric(vertical: 14),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                          side: const BorderSide(color: Colors.red, width: 1),
+                                        ),
+                                        elevation: 3,
+                                        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                                       ),
-                                    );
-                                  } catch (e) {
-                                    setState(() {
-                                      errorMessage = "Errore nel caricamento: ${e.toString()}";
-                                    });
-                                  } finally {
-                                    setState(() {
-                                      isLoading = false;
-                                    });
-                                  }
-                                },
-                                icon: const Icon(Icons.playlist_play),
-                                label: const Text("Guarda anche"),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      onPressed: () async {
+                                        setState(() {
+                                          isLoading = true;
+                                          errorMessage = null;
+                                        });
+                                        try {
+                                          final watch = await get_WatchNext_By_ID(currentTalk!.id);
+                                          if (!mounted) return;
+                                          Navigator.of(context).push(
+                                            MaterialPageRoute(
+                                              builder:
+                                                  (_) => WatchNextPage(
+                                                    watchNextTalks: watch.cast<WatchNextTalk>(),
+                                                    channel: widget.channel,
+                                                    displayName: widget.displayName,
+                                                  ),
+                                            ),
+                                          );
+                                        } catch (e) {
+                                          setState(() {
+                                            errorMessage = "Errore nel caricamento: ${e.toString()}";
+                                          });
+                                        } finally {
+                                          setState(() {
+                                            isLoading = false;
+                                          });
+                                        }
+                                      },
+                                      icon: const Icon(Icons.video_collection),
+                                      label: const Text("Guarda anche"),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color.fromARGB(255, 0, 0, 0),
+                                        foregroundColor: const Color.fromARGB(255, 255, 0, 0),
+                                        padding: const EdgeInsets.symmetric(vertical: 14),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                          side: const BorderSide(color: Colors.red, width: 1),
+                                        ),
+                                        elevation: 3,
+                                        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                               const SizedBox(height: 24),
                               const Text(
                                 "Chat: commenta insieme alla community",
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
                               ),
                               Container(
                                 height: 200,
                                 width: 600,
                                 decoration: BoxDecoration(
-                                  color: const Color.fromARGB(255, 223, 185, 185),
+                                  color: const Color.fromARGB(108, 108, 108, 108),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 padding: const EdgeInsets.all(15),
                                 child: const SingleChildScrollView(
-                                  child: Text("⚠️ La chat non è ancora attiva.", style: TextStyle(color: Colors.grey)),
+                                  child: Text(
+                                    "⚠️ La chat non è ancora attiva.",
+                                    style: TextStyle(color: Color.fromARGB(255, 255, 255, 255)),
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: 12),
                               TextField(
                                 decoration: InputDecoration(
                                   hintText: "Scrivi un messaggio...",
-                                  prefixIcon: Icon(Icons.message),
-                                  suffixIcon: Icon(Icons.send),
+                                  prefixIcon: const Icon(Icons.message),
+                                  suffixIcon: const Icon(Icons.send),
                                   filled: true,
                                   fillColor: Colors.white,
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                  border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                                 ),
                                 enabled: false,
                               ),
@@ -419,7 +459,8 @@ class _WatchNextPageState extends State<WatchNextPage> {
         elevation: 6,
         shadowColor: Colors.redAccent,
       ),
-      body: Padding(
+      body: Container(
+        color: const Color.fromARGB(255, 18, 18, 18),
         padding: const EdgeInsets.all(16.0),
         child:
             widget.watchNextTalks.isEmpty
@@ -493,23 +534,38 @@ class TalkCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(talk.title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Text(talk.description, style: const TextStyle(fontSize: 16)),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  const Icon(Icons.schedule, size: 16, color: Colors.grey),
-                  const SizedBox(width: 4),
-                  Text(talk.schedule_time, style: const TextStyle(color: Colors.grey)),
-                ],
-              ),
-            ],
+        child: Container(
+          child: Container(
+            decoration: BoxDecoration(
+              color: const Color.fromARGB(255, 245, 245, 245),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(width: 1),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.red.withOpacity(0.5), // alone più sfumato
+                  blurRadius: 2,
+                  spreadRadius: 5,
+                  offset: Offset(0, 0),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(talk.title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Text(talk.description, style: const TextStyle(fontSize: 16)),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(Icons.schedule, size: 16, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    Text(talk.schedule_time, style: const TextStyle(color: Colors.grey)),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -621,90 +677,96 @@ class _AllTalksPageState extends State<AllTalksPage> {
         elevation: 6,
         shadowColor: Colors.redAccent,
       ),
-      body: FutureBuilder<List<Talk>>(
-        future: get_Talks_By_Channel(widget.channel, 100),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(child: Text("Errore: ${snapshot.error}"));
-          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text("Nessun talk disponibile."));
-          }
-
-          final talks = snapshot.data!;
-          final now = DateTime.now();
-
-          // Trova il talk attualmente in onda
-          Talk? currentTalk;
-          int currentIndex = -1;
-          for (int i = 0; i < talks.length; i++) {
-            final start = _parseSchedule(talks[i].schedule_time);
-            final end =
-                (i + 1 < talks.length)
-                    ? _parseSchedule(talks[i + 1].schedule_time)
-                    : start.add(const Duration(hours: 1));
-
-            if (now.isAfter(start) && now.isBefore(end)) {
-              currentTalk = talks[i];
-              currentIndex = i;
-              break;
+      body: Container(
+        color: const Color.fromARGB(255, 18, 18, 18),
+        child: FutureBuilder<List<Talk>>(
+          future: get_Talks_By_Channel(widget.channel, 100),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            } else if (snapshot.hasError) {
+              return Center(child: Text("Errore: ${snapshot.error}"));
+            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return const Center(child: Text("Nessun talk disponibile."));
             }
-          }
 
-          // Filtra solo i successivi
-          final upcomingTalks =
-              (currentIndex >= 0 && currentIndex + 1 < talks.length)
-                  ? talks.sublist(currentIndex + 1)
-                  : (currentIndex == -1
-                      ? talks.where((talk) {
-                        final start = _parseSchedule(talk.schedule_time);
-                        return start.isAfter(now);
-                      }).toList()
-                      : []);
+            final talks = snapshot.data!;
+            final now = DateTime.now();
 
-          final allToDisplay = [if (currentTalk != null) currentTalk, ...upcomingTalks];
+            // Trova il talk attualmente in onda
+            Talk? currentTalk;
+            int currentIndex = -1;
+            for (int i = 0; i < talks.length; i++) {
+              final start = _parseSchedule(talks[i].schedule_time);
+              final end =
+                  (i + 1 < talks.length)
+                      ? _parseSchedule(talks[i + 1].schedule_time)
+                      : start.add(const Duration(hours: 1));
 
-          if (allToDisplay.isEmpty) {
-            return const Center(child: Text("Nessun talk in programma."));
-          }
+              if (now.isAfter(start) && now.isBefore(end)) {
+                currentTalk = talks[i];
+                currentIndex = i;
+                break;
+              }
+            }
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(12),
-            itemCount: allToDisplay.length,
-            itemBuilder: (context, index) {
-              final talk = allToDisplay[index];
-              final isNow = talk == currentTalk;
+            // Filtra solo i successivi
+            final upcomingTalks =
+                (currentIndex >= 0 && currentIndex + 1 < talks.length)
+                    ? talks.sublist(currentIndex + 1)
+                    : (currentIndex == -1
+                        ? talks.where((talk) {
+                          final start = _parseSchedule(talk.schedule_time);
+                          return start.isAfter(now);
+                        }).toList()
+                        : []);
 
-              return Card(
-                margin: const EdgeInsets.symmetric(vertical: 8),
-                elevation: isNow ? 5 : 3,
-                color: isNow ? Colors.blue[50] : null,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                  title: Text(
-                    "${isNow ? '🔴 In onda ora:\n' : ''}${talk.title}",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: isNow ? Colors.blue[800] : Colors.black,
+            final allToDisplay = [if (currentTalk != null) currentTalk, ...upcomingTalks];
+
+            if (allToDisplay.isEmpty) {
+              return const Center(child: Text("Nessun talk in programma."));
+            }
+
+            return ListView.builder(
+              padding: const EdgeInsets.all(12),
+              itemCount: allToDisplay.length,
+              itemBuilder: (context, index) {
+                final talk = allToDisplay[index];
+                final isNow = talk == currentTalk;
+
+                return Card(
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  elevation: isNow ? 5 : 3,
+                  color: isNow ? const Color.fromARGB(255, 255, 219, 219) : null,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                    title: Text(
+                      "${isNow ? '🔴 In onda ora:\n' : ''}${talk.title}",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: isNow ? const Color.fromARGB(255, 255, 255, 255) : const Color.fromARGB(255, 0, 0, 0),
+                      ),
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 4),
+                        Text("🎤 ${talk.speakers}", style: const TextStyle(fontSize: 16)),
+                        const SizedBox(height: 4),
+                        Text(
+                          "🕒 ${talk.schedule_time}",
+                          style: const TextStyle(fontSize: 14, color: Color.fromARGB(255, 0, 0, 0)),
+                        ),
+                      ],
                     ),
                   ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 4),
-                      Text("🎤 ${talk.speakers}", style: const TextStyle(fontSize: 16)),
-                      const SizedBox(height: 4),
-                      Text("🕒 ${talk.schedule_time}", style: const TextStyle(fontSize: 14, color: Colors.grey)),
-                    ],
-                  ),
-                ),
-              );
-            },
-          );
-        },
+                );
+              },
+            );
+          },
+        ),
       ),
       bottomNavigationBar: BottomNavigationBar(
         items: const [

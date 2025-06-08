@@ -419,107 +419,6 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
   }
 }
 
-class WatchNextPage extends StatefulWidget {
-  final List<WatchNextTalk> watchNextTalks;
-  final String channel;
-  final String displayName;
-
-  const WatchNextPage({Key? key, required this.watchNextTalks, required this.channel, required this.displayName})
-    : super(key: key);
-
-  @override
-  State<WatchNextPage> createState() => _WatchNextPageState();
-}
-
-class _WatchNextPageState extends State<WatchNextPage> {
-  int _selectedIndex = 1; // Se vuoi default Notifiche, oppure cambia a 0 per Home ecc
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-    if (index == 0) {
-      Navigator.of(context).popUntil((route) => route.isFirst);
-    }
-    // Puoi aggiungere navigazione per altre tab se vuoi
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Consigliati',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color.fromARGB(255, 255, 0, 0)),
-        ),
-        iconTheme: const IconThemeData(
-          color: Colors.white, // Freccia indietro
-        ),
-        backgroundColor: Colors.black,
-        elevation: 6,
-        shadowColor: Colors.redAccent,
-      ),
-      body: Container(
-        color: const Color.fromARGB(255, 18, 18, 18),
-        padding: const EdgeInsets.all(16.0),
-        child:
-            widget.watchNextTalks.isEmpty
-                ? const Center(
-                  child: Text(
-                    "Nessun talk consigliato.",
-                    style: TextStyle(fontSize: 18, color: Colors.grey, fontStyle: FontStyle.italic),
-                  ),
-                )
-                : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "Guarda anche",
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Color.fromARGB(255, 212, 2, 2),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: const Color.fromARGB(255, 245, 245, 245),
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 10,
-                              offset: const Offset(0, 5),
-                            ),
-                          ],
-                        ),
-                        padding: const EdgeInsets.all(12),
-                        child: SingleChildScrollView(child: WatchNextTalkList(watchNextTalks: widget.watchNextTalks)),
-                      ),
-                    ),
-                  ],
-                ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.notifications), label: 'Notifiche'),
-          BottomNavigationBarItem(icon: Icon(Icons.account_circle), label: 'Account'),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: const Color.fromARGB(255, 255, 0, 0),
-        unselectedItemColor: Colors.grey,
-        backgroundColor: Colors.black,
-        onTap: _onItemTapped,
-        selectedFontSize: 14,
-        unselectedFontSize: 12,
-      ),
-    );
-  }
-}
-
 class TalkCard extends StatelessWidget {
   final Talk talk;
   final VoidCallback? onTap;
@@ -573,6 +472,88 @@ class TalkCard extends StatelessWidget {
   }
 }
 
+class WatchNextPage extends StatefulWidget {
+  final List<WatchNextTalk> watchNextTalks;
+  final String channel;
+  final String displayName;
+
+  const WatchNextPage({Key? key, required this.watchNextTalks, required this.channel, required this.displayName})
+    : super(key: key);
+
+  @override
+  State<WatchNextPage> createState() => _WatchNextPageState();
+}
+
+class _WatchNextPageState extends State<WatchNextPage> {
+  int _selectedIndex = 0;
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+    if (index == 0) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    }
+    // Puoi aggiungere navigazione per altre tab se vuoi
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'Consigliati',
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color.fromARGB(255, 255, 0, 0)),
+        ),
+        iconTheme: const IconThemeData(
+          color: Colors.white, // Freccia indietro
+        ),
+        backgroundColor: Colors.black,
+        elevation: 6,
+        shadowColor: Colors.redAccent,
+      ),
+      body: Container(
+        color: const Color.fromARGB(255, 18, 18, 18),
+        padding: const EdgeInsets.all(16.0),
+        child:
+            widget.watchNextTalks.isEmpty
+                ? const Center(
+                  child: Text(
+                    "Nessun talk consigliato.",
+                    style: TextStyle(fontSize: 18, color: Colors.grey, fontStyle: FontStyle.italic),
+                  ),
+                )
+                : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: Container(
+                        child: SingleChildScrollView(child: WatchNextTalkList(watchNextTalks: widget.watchNextTalks)),
+                      ),
+                    ),
+                  ],
+                ),
+      ),
+
+      bottomNavigationBar: BottomNavigationBar(
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.notifications), label: 'Notifiche'),
+          BottomNavigationBarItem(icon: Icon(Icons.account_circle), label: 'Account'),
+        ],
+        currentIndex: _selectedIndex,
+        selectedItemColor: const Color.fromARGB(255, 255, 0, 0),
+        unselectedItemColor: Colors.grey,
+        backgroundColor: const Color.fromARGB(255, 18, 18, 18),
+        onTap: _onItemTapped,
+        selectedFontSize: 14,
+        unselectedFontSize: 12,
+      ),
+    );
+  }
+}
+
 class WatchNextTalkList extends StatelessWidget {
   final List<WatchNextTalk> watchNextTalks;
 
@@ -583,9 +564,18 @@ class WatchNextTalkList extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("Consigliati:", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        ...watchNextTalks.map((watch) => WatchNextTalkCard(talk: watch)).toList(),
+        const Text(
+          "Guarda anche:",
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFFFF5252), // rosso acceso
+          ),
+        ),
+        const SizedBox(height: 16),
+        ...watchNextTalks.map(
+          (watch) => Padding(padding: const EdgeInsets.only(bottom: 12), child: WatchNextTalkCard(talk: watch)),
+        ),
       ],
     );
   }
@@ -599,23 +589,39 @@ class WatchNextTalkCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      elevation: 3,
+      color: const Color.fromARGB(255, 213, 213, 213),
+      elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: InkWell(
-        onTap: () {
-          // Azione da definire, es. aprire URL talk.url
-        },
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(talk.title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Text(talk.url, style: const TextStyle(fontSize: 16, color: Colors.blue)),
-            ],
-          ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(talk.title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black)),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color.fromARGB(255, 0, 0, 0),
+                  foregroundColor: const Color.fromARGB(255, 255, 0, 0),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: const BorderSide(color: Colors.red, width: 1),
+                  ),
+                  elevation: 3,
+                  textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+                onPressed: () {
+                  //azione
+                },
+                icon: const Icon(Icons.play_circle),
+                label: const Text('Guarda il talk', style: TextStyle(fontSize: 16)),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -746,7 +752,7 @@ class _AllTalksPageState extends State<AllTalksPage> {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: isNow ? const Color.fromARGB(255, 255, 255, 255) : const Color.fromARGB(255, 0, 0, 0),
+                        color: isNow ? const Color.fromARGB(255, 0, 0, 0) : const Color.fromARGB(255, 0, 0, 0),
                       ),
                     ),
                     subtitle: Column(

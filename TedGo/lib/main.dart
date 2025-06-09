@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import 'talk_repository.dart';
 import 'models/talk.dart';
 import 'dart:async';
@@ -54,11 +55,8 @@ class _MyHomePageState extends State<MyHomePage> {
       _selectedIndex = index;
     });
     if (index == 0) {
-      // Navigate to home (list of channels)
       Navigator.of(context).popUntil((route) => route.isFirst);
     }
-    // For Notifications and Account, you would typically navigate to those pages.
-    // Since they are not implemented, we just update the selected index.
   }
 
   @override
@@ -69,9 +67,7 @@ class _MyHomePageState extends State<MyHomePage> {
           'TED GO',
           style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color.fromARGB(255, 255, 0, 0)),
         ),
-        iconTheme: const IconThemeData(
-          color: Color.fromARGB(255, 255, 255, 255), // Colore della freccia "indietro"
-        ),
+        iconTheme: const IconThemeData(color: Color.fromARGB(255, 255, 255, 255)),
         backgroundColor: Colors.black,
         elevation: 6,
         shadowColor: Colors.redAccent,
@@ -100,16 +96,13 @@ class _MyHomePageState extends State<MyHomePage> {
                     image: DecorationImage(
                       image: AssetImage(backgroundImage),
                       fit: BoxFit.cover,
-                      colorFilter: ColorFilter.mode(
-                        Colors.black.withOpacity(0.3), // sfuma l’immagine per rendere leggibile il testo
-                        BlendMode.darken,
-                      ),
+                      colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.3), BlendMode.darken),
                     ),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(width: 1),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.red.withOpacity(0.3), // alone più sfumato
+                        color: Colors.red.withOpacity(0.3),
                         blurRadius: 2,
                         spreadRadius: 2,
                         offset: Offset(0, 0),
@@ -152,8 +145,6 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 }
 
-// Assumo che Talk e WatchNextTalk siano definiti altrove
-
 class ChannelTalkPage extends StatefulWidget {
   final String channel;
   final String displayName;
@@ -171,19 +162,23 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
   String? errorMessage;
   int _selectedIndex = 0;
 
+  late WebViewController _webViewController;
+  String? _currentVideoUrl;
+
   @override
   void initState() {
     super.initState();
+    _webViewController = WebViewController()..setJavaScriptMode(JavaScriptMode.unrestricted);
+
     _fetchTalk();
     timer = Timer.periodic(const Duration(seconds: 30), (timer) {
-      _fetchTalk();
+      _checkAndUpdateTalk();
     });
   }
 
   DateTime _parseSchedule(String schedule) {
     final regex = RegExp(r'Streaming at (\d{2}):(\d{2}) on (\d{2})/(\d{2})');
     final match = regex.firstMatch(schedule);
-
     if (match == null) throw FormatException("Formato orario non valido: $schedule");
 
     final hour = int.parse(match.group(1)!);
@@ -209,6 +204,7 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
 
       final now = DateTime.now();
       Talk? current;
+      DateTime? startTime;
 
       for (int i = 0; i < talks.length; i++) {
         final start = _parseSchedule(talks[i].schedule_time);
@@ -216,6 +212,7 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
             (i + 1 < talks.length) ? _parseSchedule(talks[i + 1].schedule_time) : start.add(const Duration(hours: 1));
         if (now.isAfter(start) && now.isBefore(end)) {
           current = talks[i];
+          startTime = start;
           break;
         }
       }
@@ -225,12 +222,70 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
         isLoading = false;
         errorMessage = current == null ? "Nessun talk in onda al momento." : null;
       });
+
+      if (current != null && current.embedUrl != _currentVideoUrl && startTime != null) {
+        final urlWithOffset = convertTedEmbedToWatchUrlWithOffset(current.embedUrl, startTime);
+        _currentVideoUrl = urlWithOffset;
+        _webViewController.loadRequest(Uri.parse(urlWithOffset));
+      }
     } catch (e) {
       setState(() {
         currentTalk = null;
         isLoading = false;
         errorMessage = "Errore nel caricamento: ${e.toString()}";
       });
+    }
+  }
+
+  Future<void> _checkAndUpdateTalk() async {
+    try {
+      final talks = await get_Talks_By_Channel(widget.channel, 100);
+      if (talks.isEmpty) return;
+
+      final now = DateTime.now();
+      Talk? current;
+      DateTime? startTime;
+
+      for (int i = 0; i < talks.length; i++) {
+        final start = _parseSchedule(talks[i].schedule_time);
+        final end =
+            (i + 1 < talks.length) ? _parseSchedule(talks[i + 1].schedule_time) : start.add(const Duration(hours: 1));
+        if (now.isAfter(start) && now.isBefore(end)) {
+          current = talks[i];
+          startTime = start;
+          break;
+        }
+      }
+
+      if (current == null) return;
+
+      if (current.id != currentTalk?.id && startTime != null) {
+        setState(() {
+          currentTalk = current;
+          errorMessage = null;
+        });
+        final urlWithOffset = convertTedEmbedToWatchUrlWithOffset(current.embedUrl, startTime);
+        _webViewController.loadRequest(Uri.parse(urlWithOffset));
+      }
+    } catch (e) {}
+  }
+
+  String convertTedEmbedToWatchUrlWithOffset(String embedUrl, DateTime startTime) {
+    final now = DateTime.now();
+    final offsetSeconds = now.difference(startTime).inSeconds.clamp(0, 86400);
+
+    final regex = RegExp(r'embed/embed/([^/?]+)');
+    final match = regex.firstMatch(embedUrl);
+
+    if (match != null) {
+      final slug = match.group(1)!;
+      return 'https://embed.ted.com/embed/$slug?language=en&t=$offsetSeconds';
+    } else {
+      Uri uri = Uri.parse(embedUrl);
+      final newUri = uri.replace(
+        queryParameters: {...uri.queryParameters, 't': offsetSeconds.toString(), 'language': 'en'},
+      );
+      return newUri.toString();
     }
   }
 
@@ -255,9 +310,7 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
           widget.displayName,
           style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color.fromARGB(255, 255, 0, 0)),
         ),
-        iconTheme: const IconThemeData(
-          color: Color.fromARGB(255, 255, 255, 255), // Colore della freccia "indietro"
-        ),
+        iconTheme: const IconThemeData(color: Colors.white),
         backgroundColor: Colors.black,
         elevation: 6,
         shadowColor: Colors.redAccent,
@@ -269,135 +322,137 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
             isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : errorMessage != null
-                ? Center(child: Text('Errore: $errorMessage'))
+                ? Center(child: Text('Errore: $errorMessage', style: const TextStyle(color: Colors.white)))
+                : currentTalk == null
+                ? const Center(child: Text("Nessun talk in onda al momento.", style: TextStyle(color: Colors.white)))
                 : Column(
                   children: [
                     const SizedBox(height: 16),
-                    if (currentTalk != null)
-                      Expanded(
-                        child: SingleChildScrollView(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              TalkCard(talk: currentTalk!),
-                              const SizedBox(height: 16),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: ElevatedButton.icon(
-                                      onPressed: () {
-                                        Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder:
-                                                (_) => AllTalksPage(
-                                                  channel: widget.channel,
-                                                  displayName: widget.displayName,
-                                                ),
-                                          ),
-                                        );
-                                      },
-                                      icon: const Icon(Icons.event_note),
-                                      label: const Text("Vedi programmazione"),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color.fromARGB(255, 0, 0, 0),
-                                        foregroundColor: const Color.fromARGB(255, 255, 0, 0),
-                                        padding: const EdgeInsets.symmetric(vertical: 14),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(12),
-                                          side: const BorderSide(color: Colors.red, width: 1),
-                                        ),
-                                        elevation: 3,
-                                        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: ElevatedButton.icon(
-                                      onPressed: () async {
-                                        setState(() {
-                                          isLoading = true;
-                                          errorMessage = null;
-                                        });
-                                        try {
-                                          final watch = await get_WatchNext_By_ID(currentTalk!.id);
-                                          if (!mounted) return;
-                                          Navigator.of(context).push(
-                                            MaterialPageRoute(
-                                              builder:
-                                                  (_) => WatchNextPage(
-                                                    watchNextTalks: watch.cast<WatchNextTalk>(),
-                                                    channel: widget.channel,
-                                                    displayName: widget.displayName,
-                                                  ),
-                                            ),
-                                          );
-                                        } catch (e) {
-                                          setState(() {
-                                            errorMessage = "Errore nel caricamento: ${e.toString()}";
-                                          });
-                                        } finally {
-                                          setState(() {
-                                            isLoading = false;
-                                          });
-                                        }
-                                      },
-                                      icon: const Icon(Icons.video_collection),
-                                      label: const Text("Guarda anche"),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color.fromARGB(255, 0, 0, 0),
-                                        foregroundColor: const Color.fromARGB(255, 255, 0, 0),
-                                        padding: const EdgeInsets.symmetric(vertical: 14),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(12),
-                                          side: const BorderSide(color: Colors.red, width: 1),
-                                        ),
-                                        elevation: 3,
-                                        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 24),
-                              const Text(
-                                "Chat: commenta insieme alla community",
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-                              ),
-                              Container(
-                                height: 200,
-                                width: 600,
-                                decoration: BoxDecoration(
-                                  color: const Color.fromARGB(108, 108, 108, 108),
-                                  borderRadius: BorderRadius.circular(12),
+                    Expanded(
+                      child: AspectRatio(aspectRatio: 16 / 9, child: WebViewWidget(controller: _webViewController)),
+                    ),
+                    const SizedBox(height: 12),
+                    if (currentTalk != null) ...[
+                      Text(
+                        currentTalk!.title,
+                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        "Speaker: ${currentTalk!.speakers}",
+                        style: const TextStyle(fontSize: 16, fontStyle: FontStyle.italic, color: Colors.white70),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder:
+                                      (_) => AllTalksPage(channel: widget.channel, displayName: widget.displayName),
                                 ),
-                                padding: const EdgeInsets.all(15),
-                                child: const SingleChildScrollView(
-                                  child: Text(
-                                    "⚠️ La chat non è ancora attiva.",
-                                    style: TextStyle(color: Color.fromARGB(255, 255, 255, 255)),
-                                  ),
-                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.event_note),
+                            label: const Text("Vedi programmazione"),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.black,
+                              foregroundColor: Colors.red,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: const BorderSide(color: Colors.red, width: 1),
                               ),
-                              const SizedBox(height: 12),
-                              TextField(
-                                decoration: InputDecoration(
-                                  hintText: "Scrivi un messaggio...",
-                                  prefixIcon: const Icon(Icons.message),
-                                  suffixIcon: const Icon(Icons.send),
-                                  filled: true,
-                                  fillColor: Colors.white,
-                                  border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                ),
-                                enabled: false,
-                              ),
-                            ],
+                              elevation: 3,
+                              textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                            ),
                           ),
                         ),
-                      )
-                    else
-                      const Text("Nessun talk in onda al momento."),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              setState(() {
+                                isLoading = true;
+                                errorMessage = null;
+                              });
+                              try {
+                                final watch = await get_WatchNext_By_ID(currentTalk!.id);
+                                if (!mounted) return;
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder:
+                                        (_) => WatchNextPage(
+                                          watchNextTalks: watch.cast<WatchNextTalk>(),
+                                          channel: widget.channel,
+                                          displayName: widget.displayName,
+                                        ),
+                                  ),
+                                );
+                              } catch (e) {
+                                setState(() {
+                                  errorMessage = "Errore nel caricamento: ${e.toString()}";
+                                });
+                              } finally {
+                                setState(() {
+                                  isLoading = false;
+                                });
+                              }
+                            },
+                            icon: const Icon(Icons.video_collection),
+                            label: const Text("Guarda anche"),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.black,
+                              foregroundColor: Colors.red,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: const BorderSide(color: Colors.red, width: 1),
+                              ),
+                              elevation: 3,
+                              textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      "Chat: commenta insieme alla community",
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: const Color.fromARGB(108, 108, 108, 108),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.all(15),
+                        child: const SingleChildScrollView(
+                          child: Text("⚠️ La chat non è ancora attiva.", style: TextStyle(color: Colors.white)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      decoration: InputDecoration(
+                        hintText: "Scrivi un messaggio...",
+                        prefixIcon: const Icon(Icons.message),
+                        suffixIcon: const Icon(Icons.send),
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      ),
+                      enabled: false,
+                    ),
                   ],
                 ),
       ),
@@ -408,7 +463,7 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
           BottomNavigationBarItem(icon: Icon(Icons.account_circle), label: 'Account'),
         ],
         currentIndex: _selectedIndex,
-        selectedItemColor: const Color.fromARGB(255, 255, 0, 0),
+        selectedItemColor: Colors.red,
         unselectedItemColor: Colors.grey,
         backgroundColor: Colors.black,
         onTap: _onItemTapped,
@@ -419,54 +474,20 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
   }
 }
 
-class TalkCard extends StatelessWidget {
-  final Talk talk;
-  final VoidCallback? onTap;
+class TedTalkPlayer extends StatelessWidget {
+  final String embedUrl;
 
-  const TalkCard({Key? key, required this.talk, this.onTap}) : super(key: key);
+  const TedTalkPlayer({super.key, required this.embedUrl});
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          child: Container(
-            decoration: BoxDecoration(
-              color: const Color.fromARGB(255, 245, 245, 245),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(width: 1),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.red.withOpacity(0.5), // alone più sfumato
-                  blurRadius: 2,
-                  spreadRadius: 5,
-                  offset: Offset(0, 0),
-                ),
-              ],
-            ),
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(talk.title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                Text(talk.description, style: const TextStyle(fontSize: 16)),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Icon(Icons.schedule, size: 16, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    Text(talk.schedule_time, style: const TextStyle(color: Colors.grey)),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
+    return Scaffold(
+      appBar: AppBar(title: const Text("Riproduzione Talk")),
+      body: WebViewWidget(
+        controller:
+            WebViewController()
+              ..setJavaScriptMode(JavaScriptMode.unrestricted)
+              ..loadRequest(Uri.parse(embedUrl)),
       ),
     );
   }
@@ -494,7 +515,6 @@ class _WatchNextPageState extends State<WatchNextPage> {
     if (index == 0) {
       Navigator.of(context).popUntil((route) => route.isFirst);
     }
-    // Puoi aggiungere navigazione per altre tab se vuoi
   }
 
   @override
@@ -566,11 +586,7 @@ class WatchNextTalkList extends StatelessWidget {
       children: [
         const Text(
           "Guarda anche:",
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFFFF5252), // rosso acceso
-          ),
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: Color(0xFFFF5252)),
         ),
         const SizedBox(height: 16),
         ...watchNextTalks.map(
@@ -581,10 +597,27 @@ class WatchNextTalkList extends StatelessWidget {
   }
 }
 
-class WatchNextTalkCard extends StatelessWidget {
+class WatchNextTalkCard extends StatefulWidget {
   final WatchNextTalk talk;
 
   const WatchNextTalkCard({Key? key, required this.talk}) : super(key: key);
+
+  @override
+  State<WatchNextTalkCard> createState() => _WatchNextTalkCardState();
+}
+
+class _WatchNextTalkCardState extends State<WatchNextTalkCard> {
+  bool _showPlayer = false;
+  late final WebViewController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller =
+        WebViewController()
+          ..setJavaScriptMode(JavaScriptMode.unrestricted)
+          ..loadRequest(Uri.parse(widget.talk.embedUrl));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -594,11 +627,13 @@ class WatchNextTalkCard extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16),
-
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(talk.title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black)),
+            Text(
+              widget.talk.title,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
+            ),
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
@@ -615,12 +650,21 @@ class WatchNextTalkCard extends StatelessWidget {
                   textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                 ),
                 onPressed: () {
-                  //azione
+                  setState(() {
+                    _showPlayer = !_showPlayer;
+                  });
                 },
                 icon: const Icon(Icons.play_circle),
-                label: const Text('Guarda il talk', style: TextStyle(fontSize: 16)),
+                label: Text(_showPlayer ? 'Nascondi player' : 'Guarda il talk'),
               ),
             ),
+            if (_showPlayer) ...[
+              const SizedBox(height: 16),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(height: 200, child: WebViewWidget(controller: _controller)),
+              ),
+            ],
           ],
         ),
       ),
@@ -639,7 +683,7 @@ class AllTalksPage extends StatefulWidget {
 }
 
 class _AllTalksPageState extends State<AllTalksPage> {
-  int _selectedIndex = 0; // For BottomNavigationBar
+  int _selectedIndex = 0;
 
   DateTime _parseSchedule(String schedule) {
     final regex = RegExp(r'Streaming at (\d{2}):(\d{2}) on (\d{2})/(\d{2})');
@@ -663,7 +707,6 @@ class _AllTalksPageState extends State<AllTalksPage> {
       _selectedIndex = index;
     });
     if (index == 0) {
-      // Navigate to home (list of channels)
       Navigator.of(context).popUntil((route) => route.isFirst);
     }
   }
@@ -676,9 +719,7 @@ class _AllTalksPageState extends State<AllTalksPage> {
           'Programmazione',
           style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color.fromARGB(255, 255, 0, 0)),
         ),
-        iconTheme: const IconThemeData(
-          color: Colors.white, // Freccia indietro
-        ),
+        iconTheme: const IconThemeData(color: Colors.white),
         backgroundColor: Colors.black,
         elevation: 6,
         shadowColor: Colors.redAccent,
@@ -699,7 +740,6 @@ class _AllTalksPageState extends State<AllTalksPage> {
             final talks = snapshot.data!;
             final now = DateTime.now();
 
-            // Trova il talk attualmente in onda
             Talk? currentTalk;
             int currentIndex = -1;
             for (int i = 0; i < talks.length; i++) {
@@ -716,7 +756,6 @@ class _AllTalksPageState extends State<AllTalksPage> {
               }
             }
 
-            // Filtra solo i successivi
             final upcomingTalks =
                 (currentIndex >= 0 && currentIndex + 1 < talks.length)
                     ? talks.sublist(currentIndex + 1)

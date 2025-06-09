@@ -25,6 +25,15 @@ class Talk {
       schedule_time = (jsonMap['schedule_time']);
 } //il metodo torna un oggetto istanziato di tipo Talk
 
+extension TalkExtension on Talk {
+  String get embedUrl {
+    if (url.contains("ted.com/talks/")) {
+      return url.replaceFirst("https://www.ted.com/talks/", "https://embed.ted.com/talks/");
+    }
+    return url; // fallback: usa url originale
+  }
+}
+
 class WatchNextTalk {
   final String id;
   final String title;
@@ -34,4 +43,13 @@ class WatchNextTalk {
     : id = jsonMap['_id'],
       title = jsonMap['title'],
       url = jsonMap['url'];
+}
+
+extension WatchNextTalkExtension on WatchNextTalk {
+  String get embedUrl {
+    if (url.contains("ted.com/talks/")) {
+      return url.replaceFirst("https://www.ted.com/talks/", "https://embed.ted.com/talks/");
+    }
+    return url;
+  }
 }

@@ -1,0 +1,129 @@
+###### TEDx-Load-Aggregate-Model
+######
+
+
+import sys
+import json
+import pyspark
+from pyspark.sql.functions import col, collect_list, array_join, first, array_distinct
+
+from awsglue.transforms import *
+from awsglue.utils import getResolvedOptions
+from pyspark.context import SparkContext
+from awsglue.context import GlueContext
+from awsglue.job import Job
+
+
+
+##### FROM FILES
+tedx_dataset_path = "s3://tedx-2025-data-br-20252315/final_list.csv"
+
+###### READ PARAMETERS
+args = getResolvedOptions(sys.argv, ['JOB_NAME'])
+
+##### START JOB CONTEXT AND JOB
+sc = SparkContext()
+
+
+glueContext = GlueContext(sc)
+spark = glueContext.spark_session
+
+    
+job = Job(glueContext)
+job.init(args['JOB_NAME'], args)
+
+
+
+#### READ INPUT FILES TO CREATE AN INPUT DATASET
+tedx_dataset = spark.read \
+    .option("header","true") \
+    .option("quote", "\"") \
+    .option("escape", "\"") \
+    .csv(tedx_dataset_path)
+    
+tedx_dataset.printSchema()
+
+
+#### FILTER ITEMS WITH NULL POSTING KEY
+count_items = tedx_dataset.count()
+count_items_null = tedx_dataset.filter("id is not null").count()
+
+print(f"Number of items from RAW DATA {count_items}")
+print(f"Number of items from RAW DATA with NOT NULL KEY {count_items_null}")
+
+## READ THE DETAILS
+details_dataset_path = "s3://tedx-2025-data-br-20252315/details.csv"
+details_dataset = spark.read \
+    .option("header","true") \
+    .option("quote", "\"") \
+    .option("escape", "\"") \
+    .csv(details_dataset_path)
+
+details_dataset = details_dataset.select(col("id").alias("id_ref"), #trasformazione
+                                         col("description"),
+                                         col("duration"),
+                                         col("publishedAt"))
+
+# AND JOIN WITH THE MAIN TABLE (tra i due dataset faccio una left join, ovvero che potrei non avere dettagli nelle tabelle)
+tedx_dataset_main = tedx_dataset.join(details_dataset, tedx_dataset.id == details_dataset.id_ref, "left") \
+    .drop("id_ref") #tolgo la tabella id_ref
+
+tedx_dataset_main.printSchema()
+
+## READ TAGS DATASET, prendo il file dei tag
+tags_dataset_path = "s3://tedx-2025-data-br-20252315/tags.csv"
+tags_dataset = spark.read.option("header","true").csv(tags_dataset_path) #leggo il file, senza impostare l'escape, leggo solo il csv
+
+
+# CREATE THE AGGREGATE MODEL, ADD TAGS TO TEDX_DATASET
+tags_dataset_agg = tags_dataset.groupBy(col("id").alias("id_ref")).agg(collect_list("tag").alias("tags")) #faccio una groupby id, 
+#per aggregare i talk con .agg e l'api collectlist per avere una colonna di array di tag
+tags_dataset_agg.printSchema() 
+#join tra il dataset di prima, con la condizione di join per id sempre left
+tedx_dataset_agg = tedx_dataset_main.join(tags_dataset_agg, tedx_dataset.id == tags_dataset_agg.id_ref, "left") \
+    .drop("id_ref") \
+    .select(col("id").alias("_id"), col("*")) \
+    .drop("id") \
+
+tedx_dataset_agg.printSchema()
+
+#FROM FILES
+watch_next_dataset_path= "s3://tedx-2025-data-br-20252315/related_videos.csv"
+
+#READ THE NEXT VIDEO
+watch_next_dataset=spark.read\
+    .option("header","true") \
+    .option("quote", "\"") \
+    .option("escape", "\"") \
+    .csv(watch_next_dataset_path)
+    
+#watch_next_dataset.printSchema()
+
+watch_next_dataset=watch_next_dataset.dropDuplicates()
+
+#WE CREATE A TABLE WHERE WE HAVE ONLY ID AND INTERNALID
+watch_next_dataset_prova=watch_next_dataset.select((col("id")).alias("IDtradotto"), (col ("internalId")).alias("internalIDtradotto"))
+
+#WE JOIN THE TABLE OF RELATED VIDEOS WITH THE TABLE ABOVE AND WITH THE FINAL LIST
+watch_next_dataset_tradotto=watch_next_dataset.join(watch_next_dataset_prova, watch_next_dataset.related_id==watch_next_dataset_prova.internalIDtradotto, "left").drop("internalId", "related_id", "slug", "title", "duration", "viewedCount", "presenterDisplayName")
+
+watch_next_dataset_pippo=tedx_dataset_agg.join(watch_next_dataset_tradotto, tedx_dataset_agg._id==watch_next_dataset_tradotto.id, "left")
+
+tedx_dataset_complete=watch_next_dataset_pippo.groupBy(col("_id")) \
+.agg(array_distinct(collect_list("IDtradotto")).alias("watch_next"), \
+    first("slug").alias("slug"), first("speakers").alias("speakers"), \
+    first("title").alias("title"), first("url").alias("url"), \
+    first("description").alias("description"), first("duration").alias("duration"), \
+    first("publishedAt").alias("publishedAt"), first("tags").alias("tags"))
+
+write_mongo_options = { #imposto i parametri di connessione con il mio db
+    "connectionName": "TEDx",
+    "database": "unibg_tedx_2025",
+    "collection": "tedx_data",
+    "ssl": "true",
+    "ssl.domain_match": "false"}
+from awsglue.dynamicframe import DynamicFrame
+tedx_dataset_dynamic_frame = DynamicFrame.fromDF(tedx_dataset_complete, glueContext, "nested")
+
+
+glueContext.write_dynamic_frame.from_options(tedx_dataset_dynamic_frame, connection_type="mongodb", connection_options=write_mongo_options)

@@ -1,0 +1,20 @@
+const mongoose = require('mongoose');
+
+const talk_schema = new mongoose.Schema({
+    _id: String,
+    title: String,
+    url: String,
+    description: String,
+    speakers: String,
+    duration: String
+}, { collection: 'tedx_data' });
+
+const Talk = mongoose.model('talk', talk_schema);
+
+const channel_schema = new mongoose.Schema({
+    _id: String,
+    id_associati: [Number]
+}, { collection: 'tedx_canali' });
+
+const Channel = mongoose.model('channel', channel_schema);
+module.exports = {Talk, Channel};

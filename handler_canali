@@ -1,0 +1,99 @@
+const connect_to_db = require('./db');
+const analyzeKeyPhrases = require('./localNLP');
+const { Talk, Channel } = require('./Talk');
+
+module.exports.get_by_channel = async (event, context, callback) => {
+    context.callbackWaitsForEmptyEventLoop = false;
+    console.log('Received event:', JSON.stringify(event, null, 2));
+
+    let body = {};
+    if (event.body) {
+        try {
+            body = JSON.parse(event.body);
+        } catch (e) {
+            console.error('Invalid JSON body:', e);
+        }
+    }
+
+    if (event.queryStringParameters) {
+        body._id = body._id || event.queryStringParameters._id;
+    }
+
+    if (!body._id) {
+        return callback(null, {
+            statusCode: 400,
+            headers: { 'Content-Type': 'text/plain' },
+            body: 'Missing required channel ID'
+        });
+    }
+
+    try {
+        await connect_to_db();
+        console.log('=> Fetching talks for channel ID:', body._id);
+
+        const channel = await Channel.findById(body._id);
+
+        if (!channel) {
+            return callback(null, {
+                statusCode: 404,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ error: 'Channel not found' })
+            });
+        }
+
+        const talks = await Talk.find({ _id: { $in: channel.id_associati.map(String) } });
+
+        const initialStartTime = new Date('2025-06-01T12:00:00');
+        let currentTime = new Date(initialStartTime);
+        const talkDetails = [];
+
+        // Calcola la durata totale del ciclo completo
+        const totalCycleDurationMs = talks.reduce((sum, t) => {
+            const duration = parseInt(t.duration, 10) || 0;
+            return sum + duration * 1000;
+        }, 0);
+
+        const numberOfCycles = 5; // puoi aumentare o calcolare dinamicamente
+
+        for (let cycle = 0; cycle < numberOfCycles; cycle++) {
+            for (let t of talks) {
+                const durationInSeconds = parseInt(t.duration, 10) || 0;
+                const scheduleTime = new Date(currentTime);
+
+                const hours = scheduleTime.getHours().toString().padStart(2, '0');
+                const minutes = scheduleTime.getMinutes().toString().padStart(2, '0');
+                const day = scheduleTime.getDate().toString().padStart(2, '0');
+                const month = (scheduleTime.getMonth() + 1).toString().padStart(2, '0');
+                const formattedTime = `${hours}:${minutes} on ${day}/${month}`;
+
+                talkDetails.push({
+                    id: t._id,
+                    title: t.title,
+                    speakers: t.speakers,
+                    description: t.description,
+                    url: t.url,
+                    schedule_time: `Streaming at ${formattedTime}`
+                });
+
+                currentTime = new Date(currentTime.getTime() + durationInSeconds * 1000);
+            }
+        }
+
+        return callback(null, {
+            statusCode: 200,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                channel: body._id,
+                talks: talkDetails
+            }, null, 2)
+        });
+
+    } catch (err) {
+        console.error('Error fetching talks by channel:', err);
+        return callback(null, {
+            statusCode: 500,
+            headers: { 'Content-Type': 'text/plain' },
+            body: 'Could not fetch talks by channel.'
+        });
+    }
+};

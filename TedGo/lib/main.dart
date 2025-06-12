@@ -256,9 +256,7 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
           break;
         }
       }
-
       if (current == null) return;
-
       if (current.id != currentTalk?.id && startTime != null) {
         setState(() {
           currentTalk = current;
@@ -274,14 +272,15 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
     final now = DateTime.now();
     final offsetSeconds = now.difference(startTime).inSeconds.clamp(0, 86400);
 
-    final regex = RegExp(r'embed/embed/([^/?]+)');
+    final regex = RegExp(r'talks/([^/?]+)');
     final match = regex.firstMatch(embedUrl);
 
     if (match != null) {
       final slug = match.group(1)!;
-      return 'https://embed.ted.com/embed/$slug?language=en&t=$offsetSeconds';
+      return 'https://embed.ted.com/talks/$slug?language=en&t=$offsetSeconds';
     } else {
-      Uri uri = Uri.parse(embedUrl);
+      // Fallback nel caso il formato non corrisponda esattamente
+      final uri = Uri.parse(embedUrl);
       final newUri = uri.replace(
         queryParameters: {...uri.queryParameters, 't': offsetSeconds.toString(), 'language': 'en'},
       );
@@ -329,8 +328,15 @@ class _ChannelTalkPageState extends State<ChannelTalkPage> {
                   children: [
                     const SizedBox(height: 16),
                     Expanded(
-                      child: AspectRatio(aspectRatio: 16 / 9, child: WebViewWidget(controller: _webViewController)),
+                      child: AspectRatio(
+                        aspectRatio: 16 / 9,
+                        child:
+                            _currentVideoUrl != null
+                                ? WebViewWidget(controller: _webViewController)
+                                : const Center(child: CircularProgressIndicator()),
+                      ),
                     ),
+
                     const SizedBox(height: 12),
                     if (currentTalk != null) ...[
                       Text(

@@ -6,14 +6,14 @@ class Talk {
   final String url;
   final String schedule_time;
 
-  Talk({
+  /*Talk({
     required this.id,
     required this.title,
     this.speakers = '',
     this.description = '',
     this.url = '',
     this.schedule_time = '',
-  });
+  });*/
 
   Talk.fromJSON(Map<String, dynamic> jsonMap) //metodo fromJSON che si aspetta una mappa, json,
     //formata da chiave e valore, dove la chiave è una stringa e il valore è dinamico
